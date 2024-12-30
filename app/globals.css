@@ -70,3 +70,43 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* For WebKit browsers (Chrome, Safari, Edge) */
+html,
+body {
+  overflow: auto;
+}
+
+/* Customize the scrollbar size */
+*::-webkit-scrollbar {
+  width: 8px; /* Width of the vertical scrollbar */
+  height: 8px; /* Height of the horizontal scrollbar */
+}
+
+/* Track (background of the scrollbar) */
+*::-webkit-scrollbar-track {
+  background: #f1f1f1; /* Light gray track */
+}
+
+/* Handle (the draggable part of the scrollbar) */
+*::-webkit-scrollbar-thumb {
+  background: #888; /* Dark gray handle */
+  border-radius: 10px; /* Round edges */
+}
+
+/* Handle on hover */
+*::-webkit-scrollbar-thumb:hover {
+  background: #555; /* Darker handle on hover */
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: thin; /* Makes scrollbar smaller */
+  scrollbar-color: #cbcbcb #f1f1f1; /* Handle and track colors */
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
