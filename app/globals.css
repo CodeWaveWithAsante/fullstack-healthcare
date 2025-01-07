@@ -110,3 +110,7 @@ body {
     text-wrap: balance;
   }
 }
+
+.doctorCard {
+  @apply bg-white p-4 rounded-md flex gap-4 w-full md:w-[48%] xl:w-[45%] 2xl:w-[48%];
+}
