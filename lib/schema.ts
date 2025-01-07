@@ -61,3 +61,50 @@ export const PatientFormSchema = z.object({
     }),
   img: z.string().optional(),
 });
+
+export const AppointmentSchema = z.object({
+  doctor_id: z.string().min(1, "Select physician"),
+  type: z.string().min(1, "Select type of appointment"),
+  appointment_date: z.string().min(1, "Select appointment date"),
+  time: z.string().min(1, "Select appointment time"),
+  note: z.string().optional(),
+});
+
+export const DoctorSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, "Name must be at least 2 characters")
+    .max(50, "Name must be at most 50 characters"),
+  phone: z.string().min(10, "Enter phone number").max(10, "Enter phone number"),
+  email: z.string().email("Invalid email address."),
+  address: z
+    .string()
+    .min(5, "Address must be at least 5 characters")
+    .max(500, "Address must be at most 500 characters"),
+  specialization: z.string().min(2, "Specialization is required."),
+  license_number: z.string().min(2, "License number is required"),
+  type: z.enum(["FULL", "PART"], { message: "Type is required." }),
+  department: z.string().min(2, "Department is required."),
+  img: z.string().optional(),
+  password: z
+    .string()
+    .min(8, { message: "Password must be at least 8 characters long!" })
+    .optional()
+    .or(z.literal("")),
+});
+
+export const workingDaySchema = z.object({
+  day: z.enum([
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+  ]),
+  start_time: z.string(),
+  close_time: z.string(),
+});
+export const WorkingDaysSchema = z.array(workingDaySchema).optional();

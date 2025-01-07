@@ -78,6 +78,7 @@ model Patient {
   service_consent          Boolean
   medical_consent          Boolean
   img                      String?
+  colorCode                String?
 
   appointments             Appointment[]
   medical                  MedicalRecords[]
@@ -98,7 +99,9 @@ model Doctor {
   address               String
   department            String?
   img                   String?
+  colorCode             String?
   availability_status   String?
+
   type                  JOBTYPE @default(FULL)
   working_days          WorkingDays[]
   appointments          Appointment[]
@@ -133,6 +136,7 @@ model Staff {
   department    String?
   img           String?
   license_number String?
+  colorCode      String?
 
   role          Role
   status        Status @default(ACTIVE)
@@ -152,7 +156,7 @@ model Appointment {
   type              String
   note              String?
   patient           Patient  @relation(fields: [patient_id], references: [id], onDelete: Cascade)
-  doctor            Doctor   @relation(fields: [doctor_id], references: [id])
+  doctor            Doctor   @relation(fields: [doctor_id], references: [id],  onDelete:  Cascade)
 
   bills             Payment[]
   medical           MedicalRecords[]
