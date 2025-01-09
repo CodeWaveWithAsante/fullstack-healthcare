@@ -1,11 +1,13 @@
 import db from "@/lib/db";
+import { Prisma, Role } from "@prisma/client";
 import { daysOfWeek } from "..";
 import { processAppointments } from "./patient";
 
-export async function getAdminDashboardStats() {
+export async function getAdminDashboardStatistics() {
   try {
-    const todayDate = new Date().getDay();
-    const today = daysOfWeek[todayDate];
+    const today = new Date().getDay();
+
+    const todayDay = daysOfWeek[today];
 
     const [totalPatient, totalDoctors, appointments, doctors] =
       await Promise.all([
@@ -16,20 +18,20 @@ export async function getAdminDashboardStats() {
             patient: {
               select: {
                 id: true,
-                last_name: true,
                 first_name: true,
+                last_name: true,
                 img: true,
-                colorCode: true,
                 gender: true,
-                date_of_birth: true,
+                colorCode: true,
               },
             },
             doctor: {
               select: {
+                id: true,
                 name: true,
+                specialization: true,
                 img: true,
                 colorCode: true,
-                specialization: true,
               },
             },
           },
@@ -37,15 +39,14 @@ export async function getAdminDashboardStats() {
         }),
         db.doctor.findMany({
           where: {
-            working_days: {
-              some: { day: { equals: today, mode: "insensitive" } },
-            },
+            working_days: { some: { day: todayDay } },
           },
           select: {
             id: true,
             name: true,
             specialization: true,
             img: true,
+            working_days: true,
             colorCode: true,
           },
           take: 5,
@@ -56,22 +57,102 @@ export async function getAdminDashboardStats() {
       appointments
     );
 
-    const last5Records = appointments.slice(0, 5);
+    const last5Records = appointments?.slice(0, 5);
 
     return {
-      success: true,
       totalPatient,
-      totalDoctors,
       appointmentCounts,
-      availableDoctors: doctors,
-      monthlyData,
       last5Records,
-      totalAppointments: appointments.length,
-      status: 200,
+      totalAppointments: appointments?.length,
+      availableDoctors: doctors,
+      totalDoctors,
+      monthlyData,
     };
   } catch (error) {
     console.log(error);
+    return { success: false, message: "Internal Server Error", status: 500 };
+  }
+}
 
-    return { error: true, message: "Something went wrong" };
+export async function getServices() {
+  try {
+    const data = await db.services.findMany({
+      orderBy: { name: "asc" },
+    });
+
+    if (!data) {
+      return {
+        success: false,
+        message: "Data not found",
+        status: 404,
+        data: [],
+      };
+    }
+
+    return {
+      success: true,
+      data,
+    };
+  } catch (error) {
+    console.log(error);
+    return { success: false, message: "Internal Server Error", status: 500 };
+  }
+}
+
+export async function getUsers({
+  page,
+  limit,
+  search,
+  role,
+}: {
+  page: number;
+  limit?: number;
+  search?: string;
+  role?: string;
+}) {
+  try {
+    const PAGE_NUMBER = Number(page) <= 0 ? 1 : Number(page);
+    const LIMIT = Number(limit) || 10;
+
+    const SKIP = (PAGE_NUMBER - 1) * LIMIT;
+
+    const where: Prisma.UserWhereInput = {
+      ...(search && {
+        OR: [
+          { email: { contains: search, mode: "insensitive" } },
+          { name: { contains: search, mode: "insensitive" } },
+          { id: { contains: search, mode: "insensitive" } },
+        ],
+      }),
+      ...(role && role !== "ALL" && { role: role as Role }),
+    };
+
+    const [data, totalRecord] = await Promise.all([
+      db.user.findMany({
+        where: where,
+        skip: SKIP,
+        take: LIMIT,
+
+        orderBy: { name: "asc" },
+      }),
+      db.user.count({
+        where: where,
+      }),
+    ]);
+
+    if (!data) {
+      return {
+        success: false,
+        data: [],
+        message: "Data not found",
+        status: 404,
+      };
+    }
+    const totalPages = Math.ceil(totalRecord / LIMIT);
+
+    return { data, totalRecord, totalPages, currentPage: PAGE_NUMBER };
+  } catch (error) {
+    console.log(error);
+    return { success: false, message: "Internal Server Error", status: 500 };
   }
 }

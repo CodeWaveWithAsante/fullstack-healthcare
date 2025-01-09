@@ -11,12 +11,10 @@ export default clerkMiddleware(async (auth, req) => {
   const { userId, sessionClaims } = await auth();
   const url = new URL(req.url);
 
-  const role =
-    userId && sessionClaims?.metadata?.role
-      ? sessionClaims.metadata.role
-      : userId
-      ? "patient"
-      : "sign-in";
+  const userRole = (sessionClaims?.metadata as { role?: string })?.role;
+
+  console.log(userRole);
+  const role = userId && userRole ? userRole : userId ? "patient" : "sign-in";
 
   const matchingRoute = matchers.find(({ matcher }) => matcher(req));
 
@@ -28,7 +26,6 @@ export default clerkMiddleware(async (auth, req) => {
   // Continue if the user is authorized
   return NextResponse.next();
 });
-
 export const config = {
   matcher: [
     // Skip Next.js internals and all static files, unless found in search params

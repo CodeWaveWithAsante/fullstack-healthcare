@@ -1,88 +1,53 @@
 import db from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
-import { daysOfWeek } from "..";
 import { processAppointments } from "./patient";
+import { daysOfWeek } from "..";
 
-export async function getDoctors() {
+export async function getAllDoctors({
+  page,
+  limit = 10,
+  search,
+}: {
+  page: string | number;
+  limit?: number | string;
+  search?: string;
+}) {
   try {
-    const data = await db.doctor.findMany();
+    const PAGE_NUMBER = Number(page) <= 0 ? 1 : Number(page);
+    const LIMIT = Number(limit) || 10;
 
-    return { success: true, data, status: 200 };
-  } catch (error) {
-    console.log(error);
-    return { success: false, message: "Internal Server Error", status: 500 };
-  }
-}
-export async function getDoctorDashboardStats() {
-  try {
-    const { userId } = await auth();
+    const SKIP = (PAGE_NUMBER - 1) * LIMIT;
 
-    const todayDate = new Date().getDay();
-    const today = daysOfWeek[todayDate];
+    const [doctors, totalRecord] = await Promise.all([
+      db.doctor.findMany({
+        where: {
+          OR: [
+            { email: { contains: search, mode: "insensitive" } },
+            { name: { contains: search, mode: "insensitive" } },
+            { specialization: { contains: search, mode: "insensitive" } },
+          ],
+        },
+        include: {
+          working_days: true,
+        },
+        skip: SKIP,
+        take: LIMIT,
+        orderBy: { name: "asc" },
+      }),
+      db.doctor.count(),
+    ]);
 
-    const [totalPatient, totalNurses, appointments, doctors] =
-      await Promise.all([
-        db.patient.count(),
-        db.staff.count({ where: { role: "NURSE" } }),
-        db.appointment.findMany({
-          where: { doctor_id: userId!, appointment_date: { lte: new Date() } },
-          include: {
-            patient: {
-              select: {
-                id: true,
-                first_name: true,
-                last_name: true,
-                gender: true,
-                date_of_birth: true,
-                colorCode: true,
-                img: true,
-              },
-            },
-            doctor: {
-              select: {
-                id: true,
-                name: true,
-                specialization: true,
-                img: true,
-                colorCode: true,
-              },
-            },
-          },
-          orderBy: { appointment_date: "desc" },
-        }),
-        db.doctor.findMany({
-          where: {
-            working_days: {
-              some: { day: { equals: today, mode: "insensitive" } },
-            },
-          },
-          select: {
-            id: true,
-            name: true,
-            specialization: true,
-            img: true,
-            colorCode: true,
-            working_days: true,
-          },
-          take: 5,
-        }),
-      ]);
+    if (!doctors) {
+      return { success: false, message: "Data not found", status: 404 };
+    }
 
-    const { appointmentCounts, monthlyData } = await processAppointments(
-      appointments
-    );
-
-    const last5Records = appointments.slice(0, 5);
-    // const availableDoctors = doctors.slice(0, 5);
+    const totalPages = Math.ceil(totalRecord / LIMIT);
 
     return {
-      totalNurses,
-      totalPatient,
-      appointmentCounts,
-      last5Records,
-      availableDoctors: doctors,
-      totalAppointment: appointments?.length,
-      monthlyData,
+      data: doctors,
+      totalRecord,
+      totalPages,
+      currentPage: PAGE_NUMBER,
     };
   } catch (error) {
     console.log(error);
@@ -111,6 +76,7 @@ export async function getDoctorById(id: string) {
               },
               doctor: {
                 select: {
+                  id: true,
                   name: true,
                   specialization: true,
                   img: true,
@@ -123,12 +89,14 @@ export async function getDoctorById(id: string) {
           },
         },
       }),
-      db.appointment.count({
-        where: { doctor_id: id },
-      }),
+      db.appointment.count({ where: { doctor_id: id } }),
     ]);
 
-    return { data: doctor, totalAppointment };
+    if (!doctor) {
+      return { success: false, message: "Doctor not found", status: 404 };
+    }
+
+    return { success: true, error: false, data: doctor, totalAppointment };
   } catch (error) {
     console.log(error);
     return { success: false, message: "Internal Server Error", status: 500 };
@@ -137,23 +105,39 @@ export async function getDoctorById(id: string) {
 
 export async function getRatingById(id: string) {
   try {
-    const data = await db.rating.findMany({
+    const ratings = await db.rating.findMany({
       where: { staff_id: id },
       include: {
-        patient: { select: { last_name: true, first_name: true } },
+        patient: {
+          select: { last_name: true, first_name: true },
+        },
       },
+      orderBy: { created_at: "desc" },
     });
 
-    const totalRatings = data?.length;
-    const sumRatings = data?.reduce((sum, el) => sum + el.rating, 0);
+    if (!ratings) {
+      return {
+        success: false,
+        message: "Ratings not found",
+        status: 404,
+
+        totalRatings: 0,
+        averageRating: 0,
+        ratings: [],
+      };
+    }
+    const totalRatings = ratings?.length;
+    const sumRatings = ratings?.reduce((sum, rating) => sum + rating.rating, 0);
 
     const averageRating = totalRatings > 0 ? sumRatings / totalRatings : 0;
-    const formattedRatings = (Math.round(averageRating * 10) / 10).toFixed(1);
+    const formattedAverageRating = (
+      Math.round(averageRating * 10) / 10
+    ).toFixed(1);
 
     return {
       totalRatings,
-      averageRating: formattedRatings,
-      ratings: data,
+      averageRating: formattedAverageRating,
+      ratings,
     };
   } catch (error) {
     console.log(error);
@@ -161,47 +145,87 @@ export async function getRatingById(id: string) {
   }
 }
 
-export async function getAllDoctors({
-  page,
-  limit,
-  search,
-}: {
-  page: number | string;
-  limit?: number | string;
-  search?: string;
-}) {
+export async function getDoctorDashboardStatistics() {
   try {
-    const PAGE_NUMBER = Number(page) <= 0 ? 1 : Number(page);
-    const LIMIT = Number(limit) || 10;
+    const { userId } = await auth();
 
-    const SKIP = (PAGE_NUMBER - 1) * LIMIT;
+    const today = new Date().getDay();
 
-    const [doctors, totalRecords] = await Promise.all([
-      db.doctor.findMany({
-        where: {
-          OR: [
-            { name: { contains: search, mode: "insensitive" } },
-            { specialization: { contains: search, mode: "insensitive" } },
-            { email: { contains: search, mode: "insensitive" } },
-          ],
-        },
-        include: { working_days: true },
-        skip: SKIP,
-        take: LIMIT,
-      }),
-      db.doctor.count(),
-    ]);
+    const todayDay = daysOfWeek[today];
 
-    const totalPages = Math.ceil(totalRecords / LIMIT);
+    const [totalPatient, totalNurses, appointments, doctors] =
+      await Promise.all([
+        db.patient.count(),
+        db.staff.count({ where: { role: "NURSE" } }),
+        db.appointment.findMany({
+          where: { doctor_id: userId!, appointment_date: { lte: new Date() } },
+          include: {
+            patient: {
+              select: {
+                id: true,
+                first_name: true,
+                last_name: true,
+                img: true,
+                gender: true,
+              },
+            },
+            doctor: {
+              select: {
+                id: true,
+                name: true,
+                specialization: true,
+                img: true,
+              },
+            },
+          },
+          orderBy: { appointment_date: "desc" },
+        }),
+        db.doctor.findMany({
+          where: {
+            working_days: { some: { day: todayDay } },
+          },
+          select: {
+            id: true,
+            name: true,
+            specialization: true,
+            img: true,
+            working_days: true,
+          },
+          take: 5,
+        }),
+      ]);
+
+    const { appointmentCounts, monthlyData } = await processAppointments(
+      appointments
+    );
+
+    const last5Records = appointments?.slice(0, 5);
+    // const availableDoctors = doctors.slice(0, 5);
 
     return {
-      success: true,
-      data: doctors,
-      totalRecords,
-      totalPages,
-      currentPage: PAGE_NUMBER,
-      status: 200,
+      totalPatient,
+      appointmentCounts,
+      last5Records,
+      totalAppointments: appointments?.length,
+      availableDoctors: doctors,
+      totalNurses,
+      monthlyData,
     };
+  } catch (error) {
+    console.log(error);
+    return { success: false, message: "Internal Server Error", status: 500 };
+  }
+}
+
+export async function getDoctors() {
+  try {
+    const doctors = await db.doctor.findMany();
+
+    if (!doctors) {
+      return { success: false, message: "Data not found", status: 404 };
+    }
+
+    return { data: doctors };
   } catch (error) {
     console.log(error);
     return { success: false, message: "Internal Server Error", status: 500 };
