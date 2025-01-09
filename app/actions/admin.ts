@@ -1,60 +1,75 @@
 "use server";
 
 import db from "@/lib/db";
-import { DoctorSchema, WorkingDaysSchema } from "@/lib/schema";
-import { clerkClient } from "@clerk/nextjs/server";
+import { ServicesSchema } from "@/lib/schema";
+import { getRole } from "@/utils/roles";
+import { auth } from "@clerk/nextjs/server";
 
-export async function createNewDoctor(data: any) {
+export async function addNewService(data: any) {
   try {
-    const values = DoctorSchema.safeParse(data);
+    const { userId } = await auth();
 
-    const workingDaysValues = WorkingDaysSchema.safeParse(data?.work_schedule);
-
-    if (!values.success || !workingDaysValues.success) {
-      return {
-        success: false,
-        errors: true,
-        message: "Please provide all required info",
-      };
+    if (!userId) {
+      throw new Error("Unauthorized user");
     }
 
-    const validatedValues = values.data;
-    const workingDayData = workingDaysValues.data!;
+    const role = await getRole();
 
-    const client = await clerkClient();
+    if (role !== "admin" && role !== "lab_technician")
+      return { success: false, error: true, message: "Unauthorized access" };
 
-    const user = await client.users.createUser({
-      emailAddress: [validatedValues.email],
-      password: validatedValues.password,
-      firstName: validatedValues.name.split(" ")[0],
-      lastName: validatedValues.name.split(" ")[1],
-      publicMetadata: { role: "doctor" },
-    });
+    const isValidData = ServicesSchema.safeParse(data);
 
-    delete validatedValues["password"];
+    const validatedData = isValidData.data;
 
-    const doctor = await db.doctor.create({
+    await db.services.create({
       data: {
-        ...validatedValues,
-        id: user.id,
+        ...validatedData!,
+        price: Number(data.price),
+        tat: Number(data.tat),
+        department: data?.department,
       },
     });
 
-    await Promise.all(
-      workingDayData?.map((el) =>
-        db.workingDays.create({
-          data: { ...el, doctor_id: doctor.id },
-        })
-      )
-    );
-
     return {
       success: true,
-      message: "Doctor added successfully",
       error: false,
+      message: `Service added successfully`,
     };
   } catch (error) {
     console.log(error);
-    return { error: true, success: false, message: "Something went wrong" };
+    return { success: false, msg: "Internal Server Error" };
+  }
+}
+
+export async function updateService(data: any, id: number) {
+  try {
+    const role = await getRole();
+
+    if (role !== "admin" && role !== "lab_technician")
+      return { success: false, error: true, message: "Unauthorized access" };
+
+    const isValidData = ServicesSchema.safeParse(data);
+
+    const validatedData = isValidData.data;
+
+    await db.services.update({
+      where: { id },
+      data: {
+        ...validatedData!,
+        price: Number(data.price),
+        tat: Number(data.tat),
+        department: data?.department,
+      },
+    });
+
+    return {
+      success: true,
+      error: false,
+      message: `Service update successfully`,
+    };
+  } catch (error) {
+    console.log(error);
+    return { success: false, msg: "Internal Server Error" };
   }
 }

@@ -1,29 +1,31 @@
-import { AvailableDoctors } from "@/components/available-doctor";
+import { AvailableDoctors } from "@/components/available-doctors";
+import { StatCard } from "@/components/cards/stat-card";
 import { AppointmentChart } from "@/components/charts/appointment-chart";
 import { StatSummary } from "@/components/charts/stat-summary";
-import { StatCard } from "@/components/stat-card";
 import { RecentAppointments } from "@/components/tables/recent-appointment";
 import { Button } from "@/components/ui/button";
-import { checkRole, getRole } from "@/utils/roles";
-import { getDoctorDashboardStats } from "@/utils/services/doctor";
+import { getDoctorDashboardStatistics } from "@/utils/services/doctor";
 import { currentUser } from "@clerk/nextjs/server";
 import { BriefcaseBusiness, BriefcaseMedical, User, Users } from "lucide-react";
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import React from "react";
 
 const DoctorDashboard = async () => {
   const user = await currentUser();
+  const data = await getDoctorDashboardStatistics();
+
+  if (!data) {
+    return null;
+  }
 
   const {
     totalPatient,
-    totalNurses,
-    totalAppointment,
     appointmentCounts,
+    last5Records,
+    totalAppointments,
     availableDoctors,
     monthlyData,
-    last5Records,
-  } = await getDoctorDashboardStats();
+    totalNurses,
+  } = data;
 
   const cardData = [
     {
@@ -46,7 +48,7 @@ const DoctorDashboard = async () => {
     },
     {
       title: "Appointments",
-      value: totalAppointment,
+      value: totalAppointments,
       icon: BriefcaseBusiness,
       className: "bg-yellow-600/15",
       iconClassName: "bg-yellow-600/25 text-yellow-600",
@@ -73,22 +75,23 @@ const DoctorDashboard = async () => {
             <h1 className="text-lg xl:text-2xl font-semibold">
               Welcome, Dr. {user?.firstName}
             </h1>
-            <Button size="sm" variant="outline" asChild>
-              <Link href={`/record/doctors/${user?.id}`}>View profile</Link>
-            </Button>
+            <div className="space-x-2">
+              <Button size="sm" variant="outline" asChild>
+                <Link href={`/record/doctors/${user?.id}`}>View Profile</Link>
+              </Button>
+            </div>
           </div>
-
-          <div className="w-full flex flex-wrap gap-2">
-            {cardData?.map((el, index) => (
+          <div className="w-full flex flex-wrap gap-5">
+            {cardData?.map((i, id) => (
               <StatCard
-                key={index}
-                title={el?.title}
-                value={el?.value!}
-                icon={el?.icon}
-                className={el?.className}
-                iconClassName={el?.iconClassName}
-                note={el?.note}
-                link={el?.link}
+                key={id}
+                title={i.title}
+                value={i.value!}
+                icon={i.icon}
+                className={i.className}
+                note={i.note}
+                iconClassName={i.iconClassName}
+                link={i.link}
               />
             ))}
           </div>
@@ -97,16 +100,15 @@ const DoctorDashboard = async () => {
         <div className="h-[500px]">
           <AppointmentChart data={monthlyData!} />
         </div>
-
         <div className="bg-white rounded-xl p-4 mt-8">
-          <RecentAppointments data={last5Records!} />
+          <RecentAppointments data={last5Records as any} />
         </div>
       </div>
 
       {/* RIGHT */}
       <div className="w-full xl:w-[30%]">
         <div className="w-full h-[450px] mb-8">
-          <StatSummary data={appointmentCounts} total={totalAppointment!} />
+          <StatSummary data={appointmentCounts} total={totalAppointments!} />
         </div>
 
         <AvailableDoctors data={availableDoctors as any} />

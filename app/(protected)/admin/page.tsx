@@ -1,23 +1,31 @@
-import { AvailableDoctors } from "@/components/available-doctor";
+import { AvailableDoctors } from "@/components/available-doctors";
+import { StatCard } from "@/components/cards/stat-card";
 import { AppointmentChart } from "@/components/charts/appointment-chart";
+import { StaffStats } from "@/components/charts/staff-stats";
+import { StaffChartContainer } from "@/components/charts/stat-chart-container";
 import { StatSummary } from "@/components/charts/stat-summary";
-import { StatCard } from "@/components/stat-card";
 import { RecentAppointments } from "@/components/tables/recent-appointment";
 import { Button } from "@/components/ui/button";
-import { getAdminDashboardStats } from "@/utils/services/admin";
+import { Card } from "@/components/ui/card";
+import { getAdminDashboardStatistics } from "@/utils/services/admin";
 import { BriefcaseBusiness, BriefcaseMedical, User, Users } from "lucide-react";
-import React from "react";
 
-const AdminDashboard = async () => {
+const AdminPage = async () => {
+  const data = await getAdminDashboardStatistics();
+
+  if (!data) {
+    return null;
+  }
+
   const {
-    availableDoctors,
-    last5Records,
+    totalPatient,
     appointmentCounts,
+    last5Records,
+    totalAppointments,
+    availableDoctors,
     monthlyData,
     totalDoctors,
-    totalPatient,
-    totalAppointments,
-  } = await getAdminDashboardStats();
+  } = data;
 
   const cardData = [
     {
@@ -59,53 +67,56 @@ const AdminDashboard = async () => {
   ];
 
   return (
-    <div className="py-6 px-3 flex flex-col xl:flex-row rounded-xl gap-6">
-      {/* LEFT */}
-      <div className="w-full xl:w-[69%]">
-        <div className="bg-white rounded-xl p-4 mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-lg font-semibold">Statistics</h1>
-            <Button size={"sm"} variant={"outline"}>
-              {new Date().getFullYear()}
-            </Button>
+    <Card>
+      <div className="rounded-xl flex flex-col xl:flex-row gap-6">
+        {/* LEFT */}
+        <div className="w-full xl:w-[69%]">
+          <div className="bg-background rounded-xl p-4 mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-lg font-semibold">Statistics</h1>
+              <div className="space-x-2">
+                <Button size="sm" variant="outline">
+                  {new Date().getFullYear()}
+                </Button>
+              </div>
+            </div>
+            <div className="w-full flex flex-wrap gap-5">
+              {cardData?.map((i, id) => (
+                <StatCard
+                  key={id}
+                  title={i.title}
+                  value={i.value!}
+                  icon={i.icon}
+                  className={i.className}
+                  note={i.note}
+                  iconClassName={i.iconClassName}
+                  link={i.link}
+                />
+              ))}
+            </div>
           </div>
 
-          <div className="w-full  flex flex-wrap gap-5">
-            {cardData?.map((el, index) => (
-              <StatCard
-                key={index}
-                title={el.title}
-                value={el.value!}
-                icon={el.icon}
-                className={el.className}
-                iconClassName={el.iconClassName}
-                note={el.note}
-                link={el.link}
-              />
-            ))}
+          <div className="h-[500px]">
+            <AppointmentChart data={monthlyData!} />
+          </div>
+          <div className="bg-background rounded-xl p-4 mt-8">
+            <RecentAppointments data={last5Records as any} />
           </div>
         </div>
 
-        <div className="h-[500px]">
-          <AppointmentChart data={monthlyData!} />
-        </div>
+        {/* RIGHT */}
+        <div className="w-full xl:w-[30%] mt-4">
+          <div className="w-full h-[300px] mb-8">
+            <StatSummary data={appointmentCounts} total={totalAppointments!} />
+          </div>
 
-        <div className="bg-white rounded-xl p-4 mt-8">
-          <RecentAppointments data={last5Records!} />
+          <StaffChartContainer />
+
+          <AvailableDoctors data={availableDoctors as any} />
         </div>
       </div>
-
-      {/* RIGHT */}
-
-      <div className="w-full xl:w-[30%]">
-        <div className="w-full h-[450px]">
-          <StatSummary data={appointmentCounts} total={totalAppointments!} />
-        </div>
-
-        <AvailableDoctors data={availableDoctors as any} />
-      </div>
-    </div>
+    </Card>
   );
 };
 
-export default AdminDashboard;
+export default AdminPage;

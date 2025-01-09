@@ -71,46 +71,33 @@ body {
   }
 }
 
-/* For WebKit browsers (Chrome, Safari, Edge) */
-html,
-body {
-  overflow: auto;
-}
-
-/* Customize the scrollbar size */
-*::-webkit-scrollbar {
-  width: 8px; /* Width of the vertical scrollbar */
-  height: 8px; /* Height of the horizontal scrollbar */
-}
-
-/* Track (background of the scrollbar) */
-*::-webkit-scrollbar-track {
-  background: #f1f1f1; /* Light gray track */
-}
-
-/* Handle (the draggable part of the scrollbar) */
-*::-webkit-scrollbar-thumb {
-  background: #888; /* Dark gray handle */
-  border-radius: 10px; /* Round edges */
-}
-
-/* Handle on hover */
-*::-webkit-scrollbar-thumb:hover {
-  background: #555; /* Darker handle on hover */
+/* For webkit browsers (Chrome, Edge, Safari) */
+::-webkit-scrollbar {
+  display: none;
 }
 
 /* For Firefox */
-* {
-  scrollbar-width: thin; /* Makes scrollbar smaller */
-  scrollbar-color: #cbcbcb #f1f1f1; /* Handle and track colors */
+html {
+  scrollbar-width: none; /* Hides scrollbar */
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
+/* Ensures scrolling is still functional */
+body {
+  overflow: auto; /* Enables scrolling */
+}
+
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-.doctorCard {
-  @apply bg-white p-4 rounded-md flex gap-4 w-full md:w-[48%] xl:w-[45%] 2xl:w-[48%];
+.animate-fade-in {
+  animation: fade-in 0.6s ease-out forwards;
 }

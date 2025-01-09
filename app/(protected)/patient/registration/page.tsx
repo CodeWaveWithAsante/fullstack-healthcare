@@ -1,20 +1,25 @@
-import { NewPatient } from "@/components/new-patient";
-import { getPatientById } from "@/utils/services/patient";
 import { auth } from "@clerk/nextjs/server";
-import React from "react";
 
-const Registration = async () => {
+import { NewPatientForm } from "@/components/forms/new-patient-form";
+import { getDoctors } from "@/utils/services/doctor";
+import { getPatientDataById } from "@/utils/services/patient";
+
+const NewPatientPage = async () => {
   const { userId } = await auth();
-
-  const { data } = await getPatientById(userId!);
+  const { data } = await getPatientDataById(userId!);
+  const { data: doctors } = await getDoctors();
 
   return (
-    <div className="w-full h-full flex justify-center">
-      <div className="max-w-6xl w-full relative pb-10">
-        <NewPatient data={data!} type={!data ? "create" : "update"} />
+    <div className="h-full w-full relative flex justify-center">
+      <div className="max-w-6xl w-full py-6">
+        <NewPatientForm
+          data={data!}
+          physiciansData={doctors!}
+          type={!data ? "create" : "update"}
+        />
       </div>
     </div>
   );
 };
 
-export default Registration;
+export default NewPatientPage;
